@@ -25,16 +25,12 @@ labels = db.labels_
 
 
 class MyTestCase(unittest.TestCase):
-    def test_simpleoldversion(self):
-        from original_sdbw import S_Dbw
-        a = S_Dbw(simple_data, simple_data_cluster, simple_centers_id)
-        value = a.S_Dbw_result()  # 0.2886751345948128
-        self.assertTrue(0.2886751345948128 - epsilon < value < 0.2886751345948128 + epsilon)
 
     def test_simplenewversion(self):
         from s_dbw import S_Dbw
         value = S_Dbw(simple_data, simple_data_cluster)  # 0.2886751345948128
-        self.assertTrue(0.2886751345948128 - epsilon < value < 0.2886751345948128 + epsilon)
+        self.assertTrue(0.2886751345948128 - epsilon < value < 0.2886751345948128 + epsilon,
+                        msg='test 1 = {:.16f}, must be 0.2886751345948128'.format(value))
 
     def test_simpleeq(self):
         from original_sdbw import S_Dbw
@@ -42,26 +38,26 @@ class MyTestCase(unittest.TestCase):
         value_old = a.S_Dbw_result()  # 0.2886751345948128
         from s_dbw import S_Dbw
         value = S_Dbw(simple_data, simple_data_cluster)  # 0.2886751345948128
-        self.assertEqual(value_old, value)
+        self.assertEqual(value_old, value,
+                         msg='test 2 = {:.16f}, must be 0.2886751345948128'.format(value))
 
-    def test_anisodbnewversionnotnoise(self):
+    def test_anisodbnewversioncombnoise(self):
         from s_dbw import S_Dbw
-        value = S_Dbw(X, labels, noise=False)  # 1.189305583777313
-        self.assertTrue(1.189305583777313 - epsilon < value < 1.189305583777313 + epsilon)
+        value = S_Dbw(X, labels)  # 1.4045566925764599
+        self.assertTrue(1.4045566925764599 - epsilon < value < 1.4045566925764599 + epsilon,
+                        msg='test 3 = {:.16f}, must be 1.4045566925764599'.format(value))
+
+    def test_anisodbnewversionbindnoise(self):
+        from s_dbw import S_Dbw
+        value = S_Dbw(X, labels, alg_noise='bind')  # 1.2233006502166595
+        self.assertTrue(1.2233006502166595 - epsilon < value < 1.2233006502166595 + epsilon,
+                        msg='test 4 = {:.16f}, must be 1.2233006502166595'.format(value))
 
     def test_anisodbnewversionsepnoise(self):
         from s_dbw import S_Dbw
-        value = S_Dbw(X, labels, noise=True, alg_noise='sep')  # 0.3844372683801507
-        self.assertTrue(0.3844372683801507 - epsilon < value < 0.3844372683801507 + epsilon)
-
-    def test_anisodbeq(self):
-        from original_sdbw import S_Dbw
-        a = S_Dbw(X, labels, np.array([724, 875, 926]))
-        value_old = a.S_Dbw_result()  # 0.2886751345948128
-        from s_dbw import S_Dbw
-        value = S_Dbw(X, labels, noise=False)  # 0.2886751345948128
-        self.assertEqual(value_old, value)
-
+        value = S_Dbw(X, labels, alg_noise='sep')  # 0.3844372683801507
+        self.assertTrue(0.3844372683801507 - epsilon < value < 0.3844372683801507 + epsilon,
+                        msg='test 5 = {:.16f}, must be 0.3844372683801507'.format(value))
 
 
 if __name__ == '__main__':
