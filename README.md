@@ -21,28 +21,28 @@ centr='mean', nearest_centr=True, metric='euclidean')
 
 ```
 ### Parameters:
-X : array-like, shape (n_samples, n_features)  
+* X : array-like, shape (n_samples, n_features)  
     List of n_features-dimensional data points. Each row corresponds to a single data point.  
-labels : array-like, shape (n_samples,)  
+* labels : array-like, shape (n_samples,)  
     Predicted labels for each sample (-1 - for noise).  
-centers_id : array-like, shape (n_samples,)  
+* centers_id : array-like, shape (n_samples,)  
     The center_id of each cluster's center. If None - cluster's center calculate automatically.  
-method : str,  
+* method : str,  
     S_Dbw calc method:  
     'Halkidi' - original paper \[1]  
     'Kim' - see \[2]  
     'Tong' - see \[3]  
-alg_noise : str,  
+* alg_noise : str,  
     Algorithm for recording noise points.  
     'comb' - combining all noise points into one cluster (default)  
     'sep' - definition of each noise point as a separate cluster  
     'bind' -  binding of each noise point to the cluster nearest from it  
     'filter' - filtering noise points  
-centr : str,  
+* centr : str,  
     cluster center calculation method (mean (default) or median)  
-nearest_centr : bool,  
+* nearest_centr : bool,  
     The centroid corresponds to the cluster point closest to the geometric center (default: True).  
-metric : str,  
+* metric : str,  
     The distance metric, can be ‘braycurtis’, ‘canberra’, ‘chebyshev’, ‘cityblock’, ‘correlation’,  
     ‘cosine’, ‘dice’, ‘euclidean’, ‘hamming’, ‘jaccard’, ‘kulsinski’, ‘mahalanobis’, ‘matching’, ‘minkowski’,  
     ‘rogerstanimoto’, ‘russellrao’, ‘seuclidean’, ‘sokalmichener’, ‘sokalsneath’, ‘sqeuclidean’, ‘wminkowski’,‘yule’.  
