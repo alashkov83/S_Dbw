@@ -7,15 +7,27 @@ import numpy as np
 from scipy.spatial.distance import cdist
 
 
-def filter_noise_lab(X, Label):
-    """
+def calc_nearest_points(X, labels, k, centroids, metric):
+    centroids_p = []
+    for i in range(k):
+        dist = cdist(X[labels == i], np.array(centroids[i], ndmin=2), metric=metric)
+        centroids_p.append(X[labels == i][np.argmin(dist)])
+    return np.array(centroids_p)
 
-    :param Label:
-    :param X:
-    :return:
-    """
-    filterLabel = Label[Label != -1]
-    filterXYZ = X[Label != -1]
+
+def calc_centroids(X, k, labels, centr):
+    centers = []
+    for i in range(k):
+        if centr == "mean":
+            centers.append(np.average(X[labels == i], axis=0))
+        elif centr == "median":
+            centers.append(np.average(X[labels == i], axis=0))
+    return np.array(centers)
+
+
+def filter_noise_lab(X, labels):
+    filterLabel = labels[labels != -1]
+    filterXYZ = X[labels != -1]
     return filterLabel, filterXYZ
 
 
@@ -24,7 +36,7 @@ def bind_noise_lab(X, labels, metric):
     if -1 not in set(labels):
         return labels
     if len(set(labels)) == 1 and -1 in set(labels):
-        raise ValueError('Labels contain noise point only')
+        raise ValueError('Labels contains noise point only')
     label_id = []
     label_new = []
     for i in range(len(labels)):
@@ -59,68 +71,202 @@ def comb_noise_lab(labels):
     return labels
 
 
-def center_of_mass(str_nparray):
-    mass_sum = str_nparray.shape[0]
-    dim = str_nparray.shape[1]
-    center_m = str_nparray.sum(axis=0) / mass_sum
-    center_m.shape = (-1, dim)
-    return center_m
-
-
-def get_center_id(X, labels, metric):
-    center_id = []
-    n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-    for i in range(n_clusters):
-        c_mass = center_of_mass(X[labels == i])
-        dist = cdist(X[labels == i], c_mass, metric=metric)
-        center_id.append(np.where(np.all(X == X[labels == i][np.argmin(dist), :], axis=1))[0][0])
-    return np.array(center_id)
-
-
-def density(X, centers_id, labels, stdev, density_list):
+def density(X, centroids, labels, stdev, clusters_list, method, density_list=None, lambd=0.7):
     """
-    compute the density of one or two cluster(depend on density_list)
+    Compute the density of one or two cluster(depend on cluster_list)
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples', n_features)
+        List of n_features-dimensional data points. Each row corresponds
+        to a single data point.
+    centroids : array-like, shape (n_samples', n_features)
+        List of n_features-dimensional data points. Each row corresponds
+        to a single centroid.
+    labels : array-like, shape (n_samples,)
+        Predicted labels for each sample (-1 - for noise).
+    stdev : float,
+        Average standard deviation of clusters (for Halkidi method [1])
+    clusters_list : list,
+        List contains one or two No. of cluster
+    method : str,
+        S_Dbw calc method:
+        'Halkidi' - original paper [1]
+        'Kim' - see [2]
+        'Tong' - see [3]
+    density_list : list,
+        List contains density of each cluster for calculate muij [3]
+    lambd : float,
+        Lambda coefficient is a positive constant between 0 and 1 (default: 0.7, see [3]
+
+    Returns
+    -------
+    score : float
+        Density of one or two cluster
+
+    References:
+    -----------
+    .. [1] M. Halkidi and M. Vazirgiannis, “Clustering validity assessment: Finding the optimal partitioning
+        of a data set,” in ICDM, Washington, DC, USA, 2001, pp. 187–194.
+    .. [2] Youngok Kim and Soowon Lee. A clustering validity assessment Index. PAKDD’2003, Seoul, Korea, April 30–May 2,
+        2003, LNAI 2637, 602–608
+    .. [3] Tong, J. & Tan, H. J. Electron.(China) (2009) 26: 258. https://doi.org/10.1007/s11767-007-0151-8
     """
+
     density = 0
-    centers_id1 = centers_id[density_list[0]]
-    if len(density_list) == 2:
-        centers_id2 = centers_id[density_list[1]]
-        center_v = (X[centers_id1] + X[centers_id2]) / 2
+    center_p1 = centroids[clusters_list[0]]
+    if len(clusters_list) == 2:
+        center_p2 = centroids[clusters_list[1]]
+        if method == 'Kim' or method == 'Tong':
+            sigmai = np.std(X[labels == clusters_list[0]], axis=0)
+            sigmaj = np.std(X[labels == clusters_list[1]], axis=0)
+            sigmaij = (sigmai + sigmaj) / 2
+            ni = X[labels == clusters_list[0]].shape[0]
+            nj = X[labels == clusters_list[1]].shape[0]
+            nij = ni + nj
+            if method == 'Tong':
+                center_v = lambd * (center_p1 * nj + center_p2 * ni) / nij + \
+                           (1 - lambd) * ((center_p1 * density_list[clusters_list[0]] +
+                                           center_p2 * density_list[clusters_list[1]]) /
+                                          (density_list[clusters_list[0]] + density_list[clusters_list[1]]))
+            else:
+                center_v = (center_p1 + center_p2) / 2
+        else:
+            center_v = (center_p1 + center_p2) / 2
     else:
-        center_v = X[centers_id1]
-    for i in density_list:
-        temp = X[labels == i]
-        for j in temp:
-            if np.linalg.norm(j - center_v) <= stdev:
-                density += 1
+        center_v = center_p1
+        if method == 'Kim' or method == 'Tong':
+            sigmaij = np.std(X[labels == clusters_list[0]], axis=0)
+            nij = X[labels == clusters_list[0]].shape[0]
+    if method == 'Halkidi':
+        for i in clusters_list:
+            temp = X[labels == i]
+            for j in temp:
+                if np.linalg.norm(j - center_v) <= stdev:
+                    density += 1
+    elif method == 'Kim' or method == 'Tong':
+        CI = 1.96 * sigmaij / math.sqrt(nij)
+        for i in clusters_list:
+            temp = X[labels == i]
+            for j in temp:
+                if np.all(np.abs(j - center_v) <= CI):
+                    density += 1
     return density
 
 
-def Dens_bw(X, centers_id, labels, stdev, k):
+def Dens_bw(X, centroids, labels, k, method='Halkidi'):
+    """
+    Compute Inter-cluster Density (ID) - It evaluates the average density in the region among clusters in relation
+    with the density of the clusters. The goal is the density among clusters to be significant low in comparison with
+    the density in the considered clusters [1].
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples', n_features)
+        List of n_features-dimensional data points. Each row corresponds
+        to a single data point.
+    centroids : array-like, shape (n_samples', n_features)
+        List of n_features-dimensional data points. Each row corresponds
+        to a single centroid.
+    k : int,
+        No. of clusters
+    labels : array-like, shape (n_samples,)
+        Predicted labels for each sample (-1 - for noise).
+    method : str,
+        S_Dbw calc method:
+        'Halkidi' - original paper [1]
+        'Kim' - see [2]
+        'Tong' - see [3]
+
+    Returns
+    -------
+    score : float
+        Inter-cluster Density
+
+    References:
+    -----------
+    .. [1] M. Halkidi and M. Vazirgiannis, “Clustering validity assessment: Finding the optimal partitioning
+        of a data set,” in ICDM, Washington, DC, USA, 2001, pp. 187–194.
+    .. [2] Youngok Kim and Soowon Lee. A clustering validity assessment Index. PAKDD’2003, Seoul, Korea, April 30–May 2,
+        2003, LNAI 2637, 602–608
+    .. [3] Tong, J. & Tan, H. J. Electron.(China) (2009) 26: 258. https://doi.org/10.1007/s11767-007-0151-8
+    """
     density_list = []
     result = 0
+    stdev = 0
+    if method == 'Halkidi':
+        for i in range(k):
+            std_matrix_i = np.std(X[labels == i], axis=0)
+            stdev += math.sqrt(np.dot(std_matrix_i.T, std_matrix_i))
+        stdev = math.sqrt(stdev) / k
     for i in range(k):
-        density_list.append(density(X, centers_id, labels, stdev, density_list=[i]))
+        density_list.append(density(X, centroids, labels, stdev, [i], method))
+    if density_list.count(0) > 1:
+        raise ValueError('The density for two or more clusters to equal zero.')
     for i in range(k):
         for j in range(k):
             if i == j:
                 continue
-            result += density(X, centers_id, labels, stdev, [i, j]) / max(density_list[i], density_list[j])
+            result += density(X, centroids, labels, stdev, [i, j], method, density_list) / max(density_list[i],
+                                                                                               density_list[j])
     return result / (k * (k - 1))
 
 
-def Scat(X, k, labels):
+def Scat(X, k, labels, method):
+    """
+    Calculate intra-cluster variance (Average scattering for clusters).
+    Lower value -> better clustering.
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples, n_features)
+        List of ``n_features``-dimensional data points. Each row corresponds
+        to a single data point.
+    k : int,
+        No. of clusters
+    labels : array-like, shape (n_samples,)
+        Predicted labels for each sample (-1 - for noise).
+    method : str,
+        S_Dbw calc method:
+        'Halkidi' - original paper [1]
+        'Kim' - see [2]
+        'Tong' - see [3]
+
+    Returns
+    -------
+    score : float
+        Average scattering for clusters
+
+    References:
+    -----------
+    .. [1] M. Halkidi and M. Vazirgiannis, “Clustering validity assessment: Finding the optimal partitioning
+        of a data set,” in ICDM, Washington, DC, USA, 2001, pp. 187–194.
+    .. [2] Youngok Kim and Soowon Lee. A clustering validity assessment Index. PAKDD’2003, Seoul, Korea, April 30–May 2,
+     2003, LNAI 2637, 602–608
+    .. [3] Tong, J. & Tan, H. J. Electron.(China) (2009) 26: 258. https://doi.org/10.1007/s11767-007-0151-8
+    """
     theta_s = np.std(X, axis=0)
     theta_s_2norm = math.sqrt(np.dot(theta_s.T, theta_s))
     sum_theta_2norm = 0
-    for i in range(k):
-        matrix_data_i = X[labels == i]
-        theta_i = np.std(matrix_data_i, axis=0)
-        sum_theta_2norm += math.sqrt(np.dot(theta_i.T, theta_i))
-    return sum_theta_2norm / (theta_s_2norm * k)
+    if method == 'Halkidi':
+        for i in range(k):
+            theta_i = np.std(X[labels == i], axis=0)
+            sum_theta_2norm += math.sqrt(np.dot(theta_i.T, theta_i))
+        result = sum_theta_2norm / (theta_s_2norm * k)
+    else:
+        n = len(labels)
+        for i in range(k):
+            ni = X[labels == i].shape[0]
+            theta_i = np.std(X[labels == i], axis=0)
+            sum_theta_2norm += ((n - ni) / n) * math.sqrt(np.dot(theta_i.T, theta_i))
+        result = sum_theta_2norm / (theta_s_2norm * k)
+        if method == 'Tong':
+            result = sum_theta_2norm / (theta_s_2norm * (k - 1))
+    return result
 
 
-def S_Dbw(X, labels, centers_id=None, alg_noise='comb', metric='euclidean'):
+def S_Dbw(X, labels, centers_id=None, method='Tong', alg_noise='comb',
+          centr='mean', nearest_centr=True, metric='euclidean'):
     """
     Compute the S_Dbw validity index
     S_Dbw validity index is defined by equation:
@@ -130,19 +276,28 @@ def S_Dbw(X, labels, centers_id=None, alg_noise='comb', metric='euclidean'):
 
     Parameters
     ----------
-    X : array-like, shape (``n_samples``, ``n_features``)
-        List of ``n_features``-dimensional data points. Each row corresponds
+    X : array-like, shape (n_samples, n_features)
+        List of n_features-dimensional data points. Each row corresponds
         to a single data point.
-    labels : array-like, shape (``n_samples``,)
+    labels : array-like, shape (n_samples,)
         Predicted labels for each sample (-1 - for noise).
-    centers_id : array-like, shape (``n_samples``,)
+    centers_id : array-like, shape (n_samples,)
         The center_id of each cluster's center. If None - cluster's center calculate automatically.
+    method : str,
+        S_Dbw calc method:
+        'Halkidi' - original paper [1]
+        'Kim' - see [2]
+        'Tong' - see [3]
     alg_noise : str,
         Algorithm for recording noise points.
         'comb' - combining all noise points into one cluster (default)
         'sep' - definition of each noise point as a separate cluster
         'bind' -  binding of each noise point to the cluster nearest from it
         'filter' - filtering noise points
+    centr : str,
+        cluster center calculation method (mean (default) or median)
+    nearest_centr : bool,
+        The centroid corresponds to the cluster point closest to the geometric center (default: True).
     metric : str,
         The distance metric, can be ‘braycurtis’, ‘canberra’, ‘chebyshev’, ‘cityblock’, ‘correlation’,
         ‘cosine’, ‘dice’, ‘euclidean’, ‘hamming’, ‘jaccard’, ‘kulsinski’, ‘mahalanobis’, ‘matching’, ‘minkowski’,
@@ -156,12 +311,11 @@ def S_Dbw(X, labels, centers_id=None, alg_noise='comb', metric='euclidean'):
 
     References:
     -----------
-    .. [1] M. Halkidi and M. Vazirgiannis, “Clustering validity assess-
-        ment: Finding the optimal partitioning of a data set,” in
-        ICDM, Washington, DC, USA, 2001, pp. 187–194.
-        <https://pdfs.semanticscholar.org/dc44/df745fbf5794066557e52074d127b31248b2.pdf>
-    .. [2] Understanding of Internal Clustering Validation Measures
-        <http://datamining.rutgers.edu/publication/internalmeasures.pdf>
+    .. [1] M. Halkidi and M. Vazirgiannis, “Clustering validity assessment: Finding the optimal partitioning
+        of a data set,” in ICDM, Washington, DC, USA, 2001, pp. 187–194.
+    .. [2] Youngok Kim and Soowon Lee. A clustering validity assessment Index. PAKDD’2003, Seoul, Korea, April 30–May 2,
+        2003, LNAI 2637, 602–608
+    .. [3] Tong, J. & Tan, H. J. Electron.(China) (2009) 26: 258. https://doi.org/10.1007/s11767-007-0151-8
     """
     if len(set(labels)) < 2 or len(set(labels)) > len(X) - 1:
         raise ValueError("No. of unique labels must be > 1 and < n_samples")
@@ -173,15 +327,36 @@ def S_Dbw(X, labels, centers_id=None, alg_noise='comb', metric='euclidean'):
         labels = comb_noise_lab(labels)
     elif alg_noise == 'filter':
         labels, X = filter_noise_lab(X, labels)
-    if centers_id is None:
-        centers_id = get_center_id(X, labels, metric=metric)
-    k = len(centers_id)
+    k = len(set(labels))
+    if centers_id:
+        centroids = X[centers_id]
+    else:
+        centroids = calc_centroids(X, k, labels, centr)
+        if nearest_centr:
+            centroids = calc_nearest_points(X, labels, k, centroids, metric)
     if k < 2:
         raise ValueError('Only one cluster!')
-    stdev = 0
-    for i in range(k):
-        std_matrix_i = np.std(X[labels == i], axis=0)
-        stdev += math.sqrt(np.dot(std_matrix_i.T, std_matrix_i))
-    stdev = math.sqrt(stdev) / k
-    sdbw = Dens_bw(X, centers_id, labels, stdev, k) + Scat(X, k, labels)
+    sdbw = Dens_bw(X, centroids, labels, k, method) + Scat(X, k, labels, method)
     return sdbw
+
+
+if __name__ == '__main__':
+    from sklearn.datasets.samples_generator import make_blobs
+    from sklearn.cluster import DBSCAN
+    from sklearn.cluster import KMeans
+
+    n_samples = 1600
+    centers = [[1, 1], [-2, -2], [3, 3]]
+    X, labels_true = make_blobs(n_samples=n_samples, centers=centers, cluster_std=0.4,
+                                random_state=0)
+    transformation = [[0.6, -0.6], [-0.4, 0.8]]
+    X = np.dot(X, transformation)
+
+    db = DBSCAN(eps=0.14).fit(X)
+    core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+    core_samples_mask[db.core_sample_indices_] = True
+    labels = db.labels_
+    print("S_Dbw score (DBSCAN): %0.3f" % S_Dbw(X, labels))
+    kmeans = KMeans(n_clusters=3).fit(X)
+    labels = kmeans.labels_
+    print("S_Dbw score(Kmeans: %0.3f" % S_Dbw(X, labels))

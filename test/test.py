@@ -1,7 +1,6 @@
 import unittest
 import numpy as np
 from sklearn.cluster import DBSCAN
-# from sklearn.cluster import KMeans
 from sklearn.datasets.samples_generator import make_blobs
 epsilon = 0.000000000000001
 
@@ -28,7 +27,8 @@ class MyTestCase(unittest.TestCase):
 
     def test_simplenewversion(self):
         from s_dbw import S_Dbw
-        value = S_Dbw(simple_data, simple_data_cluster)  # 0.2886751345948128
+        value = S_Dbw(simple_data, simple_data_cluster, method='Halkidi', centr='mean', nearest_centr=True)
+        # 0.2886751345948128
         self.assertTrue(0.2886751345948128 - epsilon < value < 0.2886751345948128 + epsilon,
                         msg='test 1 = {:.16f}, must be 0.2886751345948128'.format(value))
 
@@ -37,25 +37,28 @@ class MyTestCase(unittest.TestCase):
         a = S_Dbw(simple_data, simple_data_cluster, simple_centers_id)
         value_old = a.S_Dbw_result()  # 0.2886751345948128
         from s_dbw import S_Dbw
-        value = S_Dbw(simple_data, simple_data_cluster)  # 0.2886751345948128
+        value = S_Dbw(simple_data, simple_data_cluster, method='Halkidi', centr='mean', nearest_centr=True)
+        # 0.2886751345948128
         self.assertEqual(value_old, value,
                          msg='test 2 = {:.16f}, must be 0.2886751345948128'.format(value))
 
     def test_anisodbnewversioncombnoise(self):
         from s_dbw import S_Dbw
-        value = S_Dbw(X, labels)  # 1.4045566925764599
+        value = S_Dbw(X, labels, method='Halkidi', centr='mean', nearest_centr=True)  # 1.4045566925764599
         self.assertTrue(1.4045566925764599 - epsilon < value < 1.4045566925764599 + epsilon,
                         msg='test 3 = {:.16f}, must be 1.4045566925764599'.format(value))
 
     def test_anisodbnewversionbindnoise(self):
         from s_dbw import S_Dbw
-        value = S_Dbw(X, labels, alg_noise='bind')  # 1.2233006502166595
+        value = S_Dbw(X, labels, alg_noise='bind',  method='Halkidi', centr='mean', nearest_centr=True)
+        # 1.2233006502166595
         self.assertTrue(1.2233006502166595 - epsilon < value < 1.2233006502166595 + epsilon,
                         msg='test 4 = {:.16f}, must be 1.2233006502166595'.format(value))
 
     def test_anisodbnewversionsepnoise(self):
         from s_dbw import S_Dbw
-        value = S_Dbw(X, labels, alg_noise='sep')  # 0.3844372683801507
+        value = S_Dbw(X, labels, alg_noise='sep', method='Halkidi', centr='mean', nearest_centr=True)
+        # 0.3844372683801507
         self.assertTrue(0.3844372683801507 - epsilon < value < 0.3844372683801507 + epsilon,
                         msg='test 5 = {:.16f}, must be 0.3844372683801507'.format(value))
 
