@@ -1,8 +1,8 @@
 # S_Dbw
 Compute the S_Dbw validity index  
 S_Dbw validity index is defined by equation:
-##### S_Dbw = scatt + dens
-where scatt - means average scattering for clusters  and dens - inter-cluster density.  
+##### S_Dbw = Scatt + Dens_bw
+where Scatt - means average scattering for clusters  and Dens_bw - inter-cluster density.  
 **Lower value -> better clustering.**
 
 Installation
@@ -17,7 +17,7 @@ Usage
 ```python
 from s_dbw import S_Dbw
 score = S_Dbw(X, labels, centers_id=None, method='Tong', alg_noise='bind',
-centr='mean', nearest_centr=True, metric='euclidean'
+centr='mean', nearest_centr=True, metric='euclidean')
 
 ```
 ### Parameters:
