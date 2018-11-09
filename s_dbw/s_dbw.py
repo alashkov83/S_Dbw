@@ -339,24 +339,3 @@ def S_Dbw(X, labels, centers_id=None, method='Tong', alg_noise='comb',
     sdbw = Dens_bw(X, centroids, labels, k, method) + Scat(X, k, labels, method)
     return sdbw
 
-
-if __name__ == '__main__':
-    from sklearn.datasets.samples_generator import make_blobs
-    from sklearn.cluster import DBSCAN
-    from sklearn.cluster import KMeans
-
-    n_samples = 1600
-    centers = [[1, 1], [-2, -2], [3, 3]]
-    X, labels_true = make_blobs(n_samples=n_samples, centers=centers, cluster_std=0.4,
-                                random_state=0)
-    transformation = [[0.6, -0.6], [-0.4, 0.8]]
-    X = np.dot(X, transformation)
-
-    db = DBSCAN(eps=0.14).fit(X)
-    core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
-    core_samples_mask[db.core_sample_indices_] = True
-    labels = db.labels_
-    print("S_Dbw score (DBSCAN): %0.3f" % S_Dbw(X, labels))
-    kmeans = KMeans(n_clusters=3).fit(X)
-    labels = kmeans.labels_
-    print("S_Dbw score(Kmeans: %0.3f" % S_Dbw(X, labels))
