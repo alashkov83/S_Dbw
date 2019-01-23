@@ -8,6 +8,33 @@ from scipy.spatial.distance import cdist
 
 
 def calc_nearest_points(X, labels, k, centroids, metric):
+    """
+    Calculation of coordinates of clusters points closest to their geometric centers
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples, n_features)
+        List of n_features-dimensional data points. Each row corresponds
+        to a single data point.
+    labels : array-like, shape (n_samples,)
+        Predicted labels for each sample.
+    k : int,
+        No. of clusters (k > 0)
+    centroids : array-like, shape (n_clusters, n_features)
+        List of n_features-dimensional data points. Each row corresponds
+        to a single centroid.
+    metric : str,
+        The distance metric, can be ‘braycurtis’, ‘canberra’, ‘chebyshev’, ‘cityblock’, ‘correlation’,
+        ‘cosine’, ‘dice’, ‘euclidean’, ‘hamming’, ‘jaccard’, ‘kulsinski’, ‘mahalanobis’, ‘matching’, ‘minkowski’,
+        ‘rogerstanimoto’, ‘russellrao’, ‘seuclidean’, ‘sokalmichener’, ‘sokalsneath’, ‘sqeuclidean’, ‘wminkowski’,
+        ‘yule’. Default is ‘euclidean’.
+
+    Returns
+    -------
+    centroids : array-like, shape (n_clusters, n_features)
+        List of n_features-dimensional points. Each row corresponds
+        to a single centroid.
+    """
     centroids_p = []
     for i in range(k):
         dist = cdist(X[labels == i], np.array(centroids[i], ndmin=2), metric=metric)
@@ -16,22 +43,85 @@ def calc_nearest_points(X, labels, k, centroids, metric):
 
 
 def calc_centroids(X, k, labels, centr):
+    """
+    Calculation of coordinates of centroids
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples, n_features)
+        List of n_features-dimensional data points. Each row corresponds
+        to a single data point.
+    k : int,
+        No. of clusters (k > 0)
+    labels : array-like, shape (n_samples,)
+        Predicted labels for each sample.
+    centr : str,
+        Cluster center calculation method (mean (default) or median)
+
+    Returns
+    -------
+    centroids : array-like, shape (n_samples', n_features)
+         List of n_features-dimensional data points. Each row corresponds
+         to a single data point - center if a cluster.
+    """
     centers = []
     for i in range(k):
         if centr == "mean":
-            centers.append(np.average(X[labels == i], axis=0))
+            centers.append(np.mean(X[labels == i], axis=0))
         elif centr == "median":
-            centers.append(np.average(X[labels == i], axis=0))
+            centers.append(np.median(X[labels == i], axis=0))
     return np.array(centers)
 
 
 def filter_noise_lab(X, labels):
+    """
+    Filter noise points
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples, n_features)
+        List of n_features-dimensional data points. Each row corresponds
+        to a single data point.
+    labels : array-like, shape (n_samples,)
+        Predicted labels for each sample.  (-1 - for noise)
+
+    Returns
+    -------
+    filterLabel : array-like, shape (n_samples,)
+        Filtered predicted labels for each sample.
+    filterXYZ : array-like, shape (n_samples, n_features)
+        List of n_features-dimensional data points. Each row corresponds
+        to a single data point. Data points which label = -1 was removed.
+    """
     filterLabel = labels[labels != -1]
     filterXYZ = X[labels != -1]
     return filterLabel, filterXYZ
 
 
 def bind_noise_lab(X, labels, metric):
+    """
+    Bind noise points to nearest cluster
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples, n_features)
+        List of n_features-dimensional data points. Each row corresponds
+        to a single data point.
+    labels : array-like, shape (n_samples,)
+        Predicted labels for each sample.  (-1 - for noise)
+    metric : str,
+        The distance metric, can be ‘braycurtis’, ‘canberra’, ‘chebyshev’, ‘cityblock’, ‘correlation’,
+        ‘cosine’, ‘dice’, ‘euclidean’, ‘hamming’, ‘jaccard’, ‘kulsinski’, ‘mahalanobis’, ‘matching’, ‘minkowski’,
+        ‘rogerstanimoto’, ‘russellrao’, ‘seuclidean’, ‘sokalmichener’, ‘sokalsneath’, ‘sqeuclidean’, ‘wminkowski’,
+        ‘yule’. Default is ‘euclidean’.
+
+    Returns
+    -------
+    labels : array-like, shape (n_samples,)
+        Modified predicted labels for each sample. to a single data point.
+        Data points which label = -1 was bound to nearest clusters.
+    """
+
     labels = labels.copy()
     if -1 not in set(labels):
         return labels
@@ -51,6 +141,20 @@ def bind_noise_lab(X, labels, metric):
 
 
 def sep_noise_lab(labels):
+    """
+    Definition of each noise point as a separate cluster
+
+    Parameters
+    ----------
+    labels : array-like, shape (n_samples,)
+        Predicted labels for each sample.  (-1 - for noise)
+
+    Returns
+    -------
+    labels : array-like, shape (n_samples,)
+        Modified predicted labels for each sample. to a single data point.
+        Each data points which label = -1 was defined as a separate cluster.
+    """
     labels = labels.copy()
     max_label = np.max(labels)
     j = max_label + 1
@@ -62,6 +166,20 @@ def sep_noise_lab(labels):
 
 
 def comb_noise_lab(labels):
+    """
+    Combining all noise points into one cluster
+
+    Parameters
+    ----------
+    labels : array-like, shape (n_samples,)
+        Predicted labels for each sample.  (-1 - for noise)
+
+    Returns
+    -------
+    labels : array-like, shape (n_samples,)
+        Modified predicted labels for each sample. to a single data point.
+        All data points which label = -1 was combined into a one cluster.
+    """
     labels = labels.copy()
     max_label = np.max(labels)
     j = max_label + 1
@@ -71,20 +189,20 @@ def comb_noise_lab(labels):
     return labels
 
 
-def density(X, centroids, labels, stdev, clusters_list, method, density_list=None, lambd=0.7):
+def calc_density(X, centroids, labels, stdev, clusters_list, method, density_list=None, lambd=0.7):
     """
     Compute the density of one or two cluster(depend on cluster_list)
 
     Parameters
     ----------
-    X : array-like, shape (n_samples', n_features)
+    X : array-like, shape (n_samples, n_features)
         List of n_features-dimensional data points. Each row corresponds
         to a single data point.
-    centroids : array-like, shape (n_samples', n_features)
+    centroids : array-like, shape (n_clusters, n_features)
         List of n_features-dimensional data points. Each row corresponds
         to a single centroid.
     labels : array-like, shape (n_samples,)
-        Predicted labels for each sample (-1 - for noise).
+        Predicted labels for each sample.
     stdev : float,
         Average standard deviation of clusters (for Halkidi method [1])
     clusters_list : list,
@@ -162,16 +280,16 @@ def Dens_bw(X, centroids, labels, k, method='Halkidi'):
 
     Parameters
     ----------
-    X : array-like, shape (n_samples', n_features)
+    X : array-like, shape (n_samples, n_features)
         List of n_features-dimensional data points. Each row corresponds
         to a single data point.
-    centroids : array-like, shape (n_samples', n_features)
+    centroids : array-like, shape (n_clusters, n_features)
         List of n_features-dimensional data points. Each row corresponds
         to a single centroid.
     k : int,
-        No. of clusters
+        No. of clusters (k > 0)
     labels : array-like, shape (n_samples,)
-        Predicted labels for each sample (-1 - for noise).
+        Predicted labels for each sample.
     method : str,
         S_Dbw calc method:
         'Halkidi' - original paper [1]
@@ -200,14 +318,14 @@ def Dens_bw(X, centroids, labels, k, method='Halkidi'):
             stdev += math.sqrt(np.dot(std_matrix_i.T, std_matrix_i))
         stdev = math.sqrt(stdev) / k
     for i in range(k):
-        density_list.append(density(X, centroids, labels, stdev, [i], method))
+        density_list.append(calc_density(X, centroids, labels, stdev, [i], method))
     if density_list.count(0) > 1:
         raise ValueError('The density for two or more clusters to equal zero.')
     for i in range(k):
         for j in range(k):
             if i == j:
                 continue
-            result += density(X, centroids, labels, stdev, [i, j], method, density_list) / max(density_list[i],
+            result += calc_density(X, centroids, labels, stdev, [i, j], method, density_list) / max(density_list[i],
                                                                                                density_list[j])
     return result / (k * (k - 1))
 
@@ -223,9 +341,9 @@ def Scat(X, k, labels, method):
         List of ``n_features``-dimensional data points. Each row corresponds
         to a single data point.
     k : int,
-        No. of clusters
+        No. of clusters (k > 0)
     labels : array-like, shape (n_samples,)
-        Predicted labels for each sample (-1 - for noise).
+        Predicted labels for each sample.
     method : str,
         S_Dbw calc method:
         'Halkidi' - original paper [1]
@@ -338,4 +456,3 @@ def S_Dbw(X, labels, centers_id=None, method='Tong', alg_noise='comb',
         raise ValueError('Only one cluster!')
     sdbw = Dens_bw(X, centroids, labels, k, method) + Scat(X, k, labels, method)
     return sdbw
-

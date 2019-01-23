@@ -10,9 +10,9 @@ with open('requirements.txt') as f:
 
 setup(
     name='s_dbw',
-    version='0.3.0',
+    version='0.3.1',
     python_requires='>=2.7',
-    packages=['s_dbw',],
+    packages=['s_dbw', ],
     url='https://github.com/alashkov83/S_Dbw',
     license='MIT License',
     platforms=['any'],
