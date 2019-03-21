@@ -187,6 +187,7 @@ def comb_noise_lab(labels):
     return labels
 
 
+
 def centroid_distance(X, unique_labels, centroids, metric):
     """
     Calculation of distances between cluster centers given by: (Dmax/Dmin) * sum{forall i in 1:|C|} 1 /( sum{forall j in 1:|C|} ||vi - vj|| )
@@ -219,7 +220,6 @@ def centroid_distance(X, unique_labels, centroids, metric):
         for j in unique_labels:
             dist = cdist(np.array(centroids[j], ndmin=2), np.array(centroids[i], ndmin=2), metric=metric)[0,0]
             module_dist += dist
-
             if dist > max_dist:
                 max_dist = dist
 
