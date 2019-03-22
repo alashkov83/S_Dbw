@@ -36,7 +36,6 @@ def calc_nearest_points(X, labels, unique_labels, centroids, metric):
     centroids_p = dict()
     for i in unique_labels:
         dist = cdist(X[labels == i], np.array(centroids[i], ndmin=2), metric=metric)
-        #print ('i', i,'centroids', centroids[i], 'dist', dist)
         centroids_p[i] = X[labels == i][np.argmin(dist)]
     
     return centroids_p
@@ -66,7 +65,6 @@ def calc_centroids(X, unique_labels, labels, centr):
     centers = dict()
     for i in unique_labels:
         if centr == "mean":
-            #print ('i', i, 'num samples in cluster', np.sum(labels == i), np.mean(X[labels == i], axis=0))
             centers[i] = np.mean(X[labels == i], axis=0)
         elif centr == "median":
             centers[i] =  np.median(X[labels == i], axis=0)
@@ -188,6 +186,51 @@ def comb_noise_lab(labels):
             labels[i] = j
     return labels
 
+
+
+def centroid_distance(X, unique_labels, centroids, metric):
+    """
+    Calculation of distances between cluster centers given by: (Dmax/Dmin) * sum{forall i in 1:|C|} 1 /( sum{forall j in 1:|C|} ||vi - vj|| )
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples, n_features)
+        List of n_features-dimensional data points. Each row corresponds
+        to a single data point.
+    unique_labels : array-like (n_clusters,),
+        Unique labels of clusters (k > 0)
+    centroids : dict-like, 
+        Key: cluster index, Value: n_features-dimensional data point
+    metric : str,
+        The distance metric, can be ‘braycurtis’, ‘canberra’, ‘chebyshev’, ‘cityblock’, ‘correlation’,
+        ‘cosine’, ‘dice’, ‘euclidean’, ‘hamming’, ‘jaccard’, ‘kulsinski’, ‘mahalanobis’, ‘matching’, ‘minkowski’,
+        ‘rogerstanimoto’, ‘russellrao’, ‘seuclidean’, ‘sokalmichener’, ‘sokalsneath’, ‘sqeuclidean’, ‘wminkowski’,
+        ‘yule’. Default is ‘euclidean’.
+
+    Returns
+    -------
+    centroids : dict-like, 
+        Key: cluster index, Value: n_features-dimensional data point
+    """
+    sum_dist = 0
+    max_dist = 0
+    min_dist = 1e6
+    for i in unique_labels:
+        module_dist = 0
+        for j in unique_labels:
+            dist = cdist(np.array(centroids[j], ndmin=2), np.array(centroids[i], ndmin=2), metric=metric)[0,0]
+            module_dist += dist
+            if dist > max_dist:
+                max_dist = dist
+
+            if dist < min_dist and dist > 0:
+                min_dist = dist
+
+        sum_dist += 1/module_dist
+
+    distance = (max_dist/min_dist)*sum_dist
+
+    return distance
 
 def calc_density(X, centroids, labels, stdev, clusters_list, method, density_dict=None, lambd=0.7):
     """
@@ -468,3 +511,62 @@ def S_Dbw(X, labels, centers_id=None, method='Tong', alg_noise='comb',
         raise ValueError('Only one cluster!')
     sdbw = Dens_bw(X, centroids, labels, unique_labels, method) + Scat(X, unique_labels, labels, method)
     return sdbw
+
+
+
+def SD(X, labels, centers_id=None, centr='mean', nearest_centr=True, metric='euclidean'):
+    """
+    Compute the SD validity index
+    SD validity index is defined by equation:
+    S_Dbw = k*scatt + distance
+    where scatt - means average scattering for clusters and distance - distances between cluster centers.
+    Lower value -> better clustering.
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples, n_features)
+        List of n_features-dimensional data points. Each row corresponds
+        to a single data point.
+    labels : array-like, shape (n_samples,)
+        Predicted labels for each sample (-1 - for noise).
+    centers_id : array-like, shape (n_samples,)
+        The center_id of each cluster's center. If None - cluster's center calculate automatically.
+    centr : str,
+        cluster center calculation method (mean (default) or median)
+    nearest_centr : bool,
+        The centroid corresponds to the cluster point closest to the geometric center (default: True).
+    metric : str,
+        The distance metric, can be ‘braycurtis’, ‘canberra’, ‘chebyshev’, ‘cityblock’, ‘correlation’,
+        ‘cosine’, ‘dice’, ‘euclidean’, ‘hamming’, ‘jaccard’, ‘kulsinski’, ‘mahalanobis’, ‘matching’, ‘minkowski’,
+        ‘rogerstanimoto’, ‘russellrao’, ‘seuclidean’, ‘sokalmichener’, ‘sokalsneath’, ‘sqeuclidean’, ‘wminkowski’,
+        ‘yule’. Default is ‘euclidean’.
+
+    Returns
+    -------
+    score : float
+        The resulting S_DBw score.
+
+    References:
+    -----------
+    .. [4] M. Halkidi and M. Vazirgiannis, “Clustering validity assessment: Finding the optimal partitioning
+        of a data set,” in ICDM, Washington, DC, USA, 2001, pp. 187–194.
+    """
+
+    if len(set(labels)) < 2 or len(set(labels)) > len(X) - 1:
+        raise ValueError("No. of unique labels must be > 1 and < n_samples")
+    unique_labels = np.unique(labels)
+
+    if centers_id:
+        centroids = dict()
+        for index, label in enumerate(unique_labels):
+            centroids[label] = X[centers_id[index]]
+    else:
+        centroids = calc_centroids(X, unique_labels, labels, centr)
+        if nearest_centr:
+            centroids = calc_nearest_points(X, labels, unique_labels, centroids, metric)
+    if np.size(unique_labels) < 2:
+        raise ValueError('Only one cluster!')
+    
+    sd = Scat(X, unique_labels, labels, 'Halkidi')*centroid_distance(X, unique_labels, centroids, metric) + centroid_distance(X, unique_labels, centroids, metric)
+
+    return sd
