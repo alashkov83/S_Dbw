@@ -1,12 +1,12 @@
 # S_Dbw
-###Compute the S_Dbw or SD validity index  
+### Compute the S_Dbw or SD validity index  
 
-####S_Dbw validity index is defined by equation:
+#### S_Dbw validity index is defined by equation:
 ##### S_Dbw = Scatt + Dens_bw
 where Scatt - means average scattering for clusters and Dens_bw - inter-cluster density.  
 **Lower value -> better clustering.**
 
-####SD validity index is defined by equation:
+#### SD validity index is defined by equation:
 ##### SD = k*Scatt + distance
 where distance - distances between cluster centers, k - weighting coefficient equal to distance(Cmax).  
 **Lower value -> better clustering.**
@@ -26,7 +26,7 @@ score = S_Dbw(X, labels, centers_id=None, method='Tong', alg_noise='bind',
 centr='mean', nearest_centr=True, metric='euclidean')
 
 ```
-#####OR
+##### OR
 ```python
 from s_dbw import SD
 score = SD(X, labels, k=1.0, centers_id=None,  alg_noise='bind',centr='mean', nearest_centr=True, metric='euclidean')
