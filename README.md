@@ -55,13 +55,13 @@ score = SD(X, labels, k=1.0, centers_id=None,  alg_noise='bind',centr='mean', ne
     ‘cosine’, ‘dice’, ‘euclidean’, ‘hamming’, ‘jaccard’, ‘kulsinski’, ‘mahalanobis’, ‘matching’, ‘minkowski’,  
     ‘rogerstanimoto’, ‘russellrao’, ‘seuclidean’, ‘sokalmichener’, ‘sokalsneath’, ‘sqeuclidean’, ‘wminkowski’,‘yule’.  
     Default is ‘euclidean’.  
-#####For S_Dbw:
+##### For S_Dbw:
 * method : str,  
     S_Dbw calc method:  
     'Halkidi' - original paper \[1]  
     'Kim' - see \[2]  
     'Tong' - see \[3]  
-#####For SD:
+##### For SD:
 * k: float,
     The weighting coefficient equal to distance(Cmax). It is necessary for evaluating solutions with vary number of clusters because distance(C) depends on number of clusters \[4].
 
