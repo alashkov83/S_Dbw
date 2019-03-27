@@ -10,7 +10,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='s_dbw',
-    version='0.3.1',
+    version='0.4.0',
     python_requires='>=2.7',
     packages=['s_dbw', ],
     url='https://github.com/alashkov83/S_Dbw',

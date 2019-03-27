@@ -37,7 +37,6 @@ def calc_nearest_points(X, labels, unique_labels, centroids, metric):
     for i in unique_labels:
         dist = cdist(X[labels == i], np.array(centroids[i], ndmin=2), metric=metric)
         centroids_p[i] = X[labels == i][np.argmin(dist)]
-    
     return centroids_p
 
 
@@ -67,7 +66,7 @@ def calc_centroids(X, unique_labels, labels, centr):
         if centr == "mean":
             centers[i] = np.mean(X[labels == i], axis=0)
         elif centr == "median":
-            centers[i] =  np.median(X[labels == i], axis=0)
+            centers[i] = np.median(X[labels == i], axis=0)
     return centers
 
 
@@ -187,16 +186,12 @@ def comb_noise_lab(labels):
     return labels
 
 
-
-def centroid_distance(X, unique_labels, centroids, metric):
+def centroid_distance(unique_labels, centroids, metric):
     """
     Calculation of distances between cluster centers given by: (Dmax/Dmin) * sum{forall i in 1:|C|} 1 /( sum{forall j in 1:|C|} ||vi - vj|| )
 
     Parameters
     ----------
-    X : array-like, shape (n_samples, n_features)
-        List of n_features-dimensional data points. Each row corresponds
-        to a single data point.
     unique_labels : array-like (n_clusters,),
         Unique labels of clusters (k > 0)
     centroids : dict-like, 
@@ -218,19 +213,16 @@ def centroid_distance(X, unique_labels, centroids, metric):
     for i in unique_labels:
         module_dist = 0
         for j in unique_labels:
-            dist = cdist(np.array(centroids[j], ndmin=2), np.array(centroids[i], ndmin=2), metric=metric)[0,0]
+            dist = cdist(np.array(centroids[j], ndmin=2), np.array(centroids[i], ndmin=2), metric=metric)[0, 0]
             module_dist += dist
             if dist > max_dist:
                 max_dist = dist
-
-            if dist < min_dist and dist > 0:
+            if min_dist > dist > 0:
                 min_dist = dist
-
-        sum_dist += 1/module_dist
-
-    distance = (max_dist/min_dist)*sum_dist
-
+        sum_dist += 1 / module_dist
+    distance = (max_dist / min_dist) * sum_dist
     return distance
+
 
 def calc_density(X, centroids, labels, stdev, clusters_list, method, density_dict=None, lambd=0.7):
     """
@@ -362,21 +354,22 @@ def Dens_bw(X, centroids, labels, unique_labels, method='Halkidi'):
         stdev = math.sqrt(stdev) / k
     for i in unique_labels:
         density_dict[i] = calc_density(X, centroids, labels, stdev, [i], method)
-    
+
     count_zeros = 0
     for cluster in density_dict.keys():
         if density_dict[cluster] == 0:
-            count_zeros += 1 
-        
+            count_zeros += 1
+
         if count_zeros > 1:
             raise ValueError('The density for two or more clusters to equal zero.')
-    
+
     for i in unique_labels:
         for j in unique_labels:
             if i == j:
                 continue
-            result += calc_density(X, centroids, labels, stdev, [i, j], method, density_dict) / max(density_dict[i], density_dict[j])
-    
+            result += calc_density(X, centroids, labels, stdev, [i, j], method, density_dict) / max(density_dict[i],
+                                                                                                    density_dict[j])
+
     return result / (k * (k - 1))
 
 
@@ -498,7 +491,8 @@ def S_Dbw(X, labels, centers_id=None, method='Tong', alg_noise='comb',
     elif alg_noise == 'filter':
         labels, X = filter_noise_lab(X, labels)
     unique_labels = np.unique(labels)
-
+    if np.size(unique_labels) < 2:
+        raise ValueError('Only one cluster!')
     if centers_id:
         centroids = dict()
         for index, label in enumerate(unique_labels):
@@ -507,19 +501,18 @@ def S_Dbw(X, labels, centers_id=None, method='Tong', alg_noise='comb',
         centroids = calc_centroids(X, unique_labels, labels, centr)
         if nearest_centr:
             centroids = calc_nearest_points(X, labels, unique_labels, centroids, metric)
-    if np.size(unique_labels) < 2:
-        raise ValueError('Only one cluster!')
+
     sdbw = Dens_bw(X, centroids, labels, unique_labels, method) + Scat(X, unique_labels, labels, method)
     return sdbw
 
 
-
-def SD(X, labels, centers_id=None, centr='mean', nearest_centr=True, metric='euclidean'):
+def SD(X, labels, k=1.0, centers_id=None, alg_noise='comb', centr='mean', nearest_centr=True, metric='euclidean'):
     """
     Compute the SD validity index
     SD validity index is defined by equation:
-    S_Dbw = k*scatt + distance
-    where scatt - means average scattering for clusters and distance - distances between cluster centers.
+    SD = k*scatt + distance
+    where scatt - means average scattering for clusters and distance - distances between cluster centers,
+    k = distances(Cmax), where Cmax - maximum number of clusters.
     Lower value -> better clustering.
 
     Parameters
@@ -529,8 +522,17 @@ def SD(X, labels, centers_id=None, centr='mean', nearest_centr=True, metric='euc
         to a single data point.
     labels : array-like, shape (n_samples,)
         Predicted labels for each sample (-1 - for noise).
+    k: float
+        The weighting coefficient equal to distances(Cmax). It is necessary for evaluating solutions
+         with vary number of clusters because distances(C) depends on number of clusters.
     centers_id : array-like, shape (n_samples,)
         The center_id of each cluster's center. If None - cluster's center calculate automatically.
+    alg_noise : str,
+        Algorithm for recording noise points.
+        'comb' - combining all noise points into one cluster (default)
+        'sep' - definition of each noise point as a separate cluster
+        'bind' -  binding of each noise point to the cluster nearest from it
+        'filter' - filtering noise points
     centr : str,
         cluster center calculation method (mean (default) or median)
     nearest_centr : bool,
@@ -544,18 +546,27 @@ def SD(X, labels, centers_id=None, centr='mean', nearest_centr=True, metric='euc
     Returns
     -------
     score : float
-        The resulting S_DBw score.
+        The resulting SD score.
 
     References:
     -----------
-    .. [4] M. Halkidi and M. Vazirgiannis, “Clustering validity assessment: Finding the optimal partitioning
-        of a data set,” in ICDM, Washington, DC, USA, 2001, pp. 187–194.
+    .. [4] Halkidi, Maria & Vazirgiannis, Michalis & Batistakis, Yannis. (2000).
+    Quality Scheme Assessment in the Clustering Process. LNCS (LNAI). 1910. 265-276.
     """
 
     if len(set(labels)) < 2 or len(set(labels)) > len(X) - 1:
         raise ValueError("No. of unique labels must be > 1 and < n_samples")
+    if alg_noise == 'sep':
+        labels = sep_noise_lab(labels)
+    elif alg_noise == 'bind':
+        labels = bind_noise_lab(X, labels, metric=metric)
+    elif alg_noise == 'comb':
+        labels = comb_noise_lab(labels)
+    elif alg_noise == 'filter':
+        labels, X = filter_noise_lab(X, labels)
     unique_labels = np.unique(labels)
-
+    if np.size(unique_labels) < 2:
+        raise ValueError('Only one cluster!')
     if centers_id:
         centroids = dict()
         for index, label in enumerate(unique_labels):
@@ -564,9 +575,5 @@ def SD(X, labels, centers_id=None, centr='mean', nearest_centr=True, metric='euc
         centroids = calc_centroids(X, unique_labels, labels, centr)
         if nearest_centr:
             centroids = calc_nearest_points(X, labels, unique_labels, centroids, metric)
-    if np.size(unique_labels) < 2:
-        raise ValueError('Only one cluster!')
-    
-    sd = Scat(X, unique_labels, labels, 'Halkidi')*centroid_distance(X, unique_labels, centroids, metric) + centroid_distance(X, unique_labels, centroids, metric)
-
+    sd = k * Scat(X, unique_labels, labels, 'Halkidi') + centroid_distance(unique_labels, centroids, metric)
     return sd
